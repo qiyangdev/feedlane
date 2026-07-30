@@ -8,12 +8,14 @@
   "scripts": {
     "dev": "tsx watch src/dev.ts",
     "build": "tsc -p tsconfig.build.json",
+    "build:smoke": "node scripts/smoke-build.mjs",
+    "smoke:deployment": "node scripts/smoke-deployment.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint --deny-warnings .",
     "format": "oxfmt . --write",
     "format:check": "oxfmt . --check",
     "test": "vitest run",
-    "check": "pnpm run typecheck && pnpm run format:check && pnpm run lint && pnpm run test && pnpm run build"
+    "check": "pnpm run typecheck && pnpm run format:check && pnpm run lint && pnpm run test && pnpm run build && pnpm run build:smoke"
   },
   "dependencies": {
     "@hono/node-server": "2.0.12",

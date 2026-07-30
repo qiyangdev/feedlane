@@ -6,7 +6,7 @@ import { HttpFetcher } from "./core/fetcher.js";
 import { jsonConsoleLogger, type StructuredLogger } from "./core/logger.js";
 import { RequestMetrics } from "./core/metrics.js";
 import type { RouteRegistry } from "./core/registry.js";
-import { serializeFeedDocument } from "./core/serializer.js";
+import { serializeFeedDocument, type FeedFormat } from "./core/serializer.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { observability } from "./middleware/observability.js";
 import { requestId, type AppBindings } from "./middleware/request-id.js";
@@ -20,6 +20,7 @@ export interface CreateAppOptions {
   logger?: StructuredLogger;
   metrics?: RequestMetrics;
   now?: () => number;
+  publicBaseUrl?: string | URL;
 }
 
 export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
@@ -28,6 +29,7 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
   const fetcher = options.fetcher ?? new HttpFetcher();
   const logger = options.logger ?? jsonConsoleLogger;
   const metrics = options.metrics ?? new RequestMetrics();
+  const publicBaseUrl = parsePublicBaseUrl(options.publicBaseUrl);
 
   app.use("*", requestId);
   app.use(
@@ -89,7 +91,7 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
 
       const document = await route.execute({
         params: context.req.param(),
-        requestUrl: new URL(context.req.url),
+        requestUrl: buildFeedUrl(new URL(context.req.url), formatResult.data, publicBaseUrl),
         fetcher,
       });
       const output = serializeFeedDocument(document, formatResult.data);
@@ -98,7 +100,7 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
       context.header("Cache-Control", "public, max-age=60");
       context.header(
         "Vercel-CDN-Cache-Control",
-        `public, s-maxage=${route.cacheTtl}, stale-while-revalidate=86400, stale-if-error=604800`,
+        `public, s-maxage=${route.cacheTtl}, stale-while-revalidate=86400`,
       );
       return context.body(output.body);
     });
@@ -111,11 +113,52 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
   return app;
 }
 
-export const app = createApp();
+const configuredPublicBaseUrl = process.env.PUBLIC_BASE_URL;
+export const app = createApp(
+  configuredPublicBaseUrl === undefined ? {} : { publicBaseUrl: configuredPublicBaseUrl },
+);
 
 export default app;
 
 function setOperationalHeaders(context: { header(name: string, value: string): void }): void {
   context.header("Cache-Control", "private, no-store");
   context.header("Vercel-CDN-Cache-Control", "private, no-store");
+}
+
+function parsePublicBaseUrl(value: string | URL | undefined): URL | undefined {
+  if (value === undefined || (typeof value === "string" && value.trim() === "")) return undefined;
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new TypeError("PUBLIC_BASE_URL must be an absolute HTTP or HTTPS URL.");
+  }
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.pathname !== "/" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new TypeError("PUBLIC_BASE_URL must contain only an HTTP or HTTPS origin.");
+  }
+  return url;
+}
+
+function buildFeedUrl(requestUrl: URL, format: FeedFormat, publicBaseUrl: URL | undefined): URL {
+  const url = new URL(requestUrl);
+  if (publicBaseUrl !== undefined) {
+    url.protocol = publicBaseUrl.protocol;
+    url.host = publicBaseUrl.host;
+  }
+  url.username = "";
+  url.password = "";
+  url.search = "";
+  url.hash = "";
+  if (format !== "rss") {
+    url.searchParams.set("format", format);
+  }
+  return url;
 }

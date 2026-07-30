@@ -41,8 +41,40 @@ describe("Feedlane application", () => {
     expect(response.headers.get("content-type")).toBe("application/rss+xml; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
     expect(response.headers.get("vercel-cdn-cache-control")).toBe(
-      "public, s-maxage=600, stale-while-revalidate=86400, stale-if-error=604800",
+      "public, s-maxage=600, stale-while-revalidate=86400",
     );
+  });
+
+  it("uses the configured public origin and removes unsupported feed URL parameters", async () => {
+    server.use(http.get(apiUrl, () => HttpResponse.json([])));
+    const app = createApp({
+      registry: createRouteRegistry({ githubToken: undefined }),
+      logger: silentLogger,
+      publicBaseUrl: "https://feeds.example.com",
+    });
+
+    const response = await app.request(
+      "https://internal.example.test/github/releases/acme/widget?format=json&token=must-not-leak",
+    );
+    const body = (await response.json()) as { feed_url: string };
+
+    expect(response.status).toBe(200);
+    expect(body.feed_url).toBe("https://feeds.example.com/github/releases/acme/widget?format=json");
+    expect(JSON.stringify(body)).not.toContain("must-not-leak");
+  });
+
+  it.each([
+    "not-a-url",
+    "ftp://feeds.example.com",
+    "https://user:password@feeds.example.com",
+    "https://feeds.example.com/path",
+    "https://feeds.example.com/?debug=true",
+  ])("rejects an invalid public base URL: %s", (publicBaseUrl) => {
+    expect(() => createApp({ publicBaseUrl })).toThrow(TypeError);
+  });
+
+  it("treats an empty public base URL as unset", () => {
+    expect(() => createApp({ publicBaseUrl: "" })).not.toThrow();
   });
 
   it.each(["/github/releases/-invalid/widget", "/github/releases/acme/bad%20repo"])(

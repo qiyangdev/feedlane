@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FeedDocument } from "../src/core/feed.js";
+import { ValidationError } from "../src/core/errors.js";
 import { serializeFeedDocument } from "../src/core/serializer.js";
 
 const document: FeedDocument = {
@@ -61,4 +62,40 @@ describe("serializeFeedDocument", () => {
       content_html: "<p>Hello <strong>feed readers</strong> &amp; friends.</p>",
     });
   });
+
+  it.each([
+    ["feed home URL", { ...document, homeUrl: "javascript:alert(1)" }],
+    ["feed URL", { ...document, feedUrl: "relative/feed" }],
+    ["item title", { ...document, items: [{ ...document.items[0]!, title: " " }] }],
+    ["item URL", { ...document, items: [{ ...document.items[0]!, url: "file:///tmp/private" }] }],
+    [
+      "author URL",
+      {
+        ...document,
+        items: [
+          {
+            ...document.items[0]!,
+            authors: [{ name: "Example", url: "mailto:example@example.com" }],
+          },
+        ],
+      },
+    ],
+    [
+      "enclosure metadata",
+      {
+        ...document,
+        items: [
+          {
+            ...document.items[0]!,
+            enclosure: { url: "https://example.com/audio.mp3", type: "audio/mpeg", length: -1 },
+          },
+        ],
+      },
+    ],
+  ] satisfies Array<[string, FeedDocument]>)(
+    "rejects an invalid %s",
+    (_description, invalidDocument) => {
+      expect(() => serializeFeedDocument(invalidDocument, "rss")).toThrow(ValidationError);
+    },
+  );
 });

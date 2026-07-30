@@ -96,12 +96,52 @@ function assertValidDocument(document: FeedDocument): void {
   ) {
     throw new ValidationError("The feed document is missing required metadata.");
   }
+  assertHttpUrl(document.homeUrl, "The feed home URL is invalid.");
+  assertHttpUrl(document.feedUrl, "The feed URL is invalid.");
   for (const item of document.items) {
+    if (item.id.trim() === "" || item.title.trim() === "") {
+      throw new ValidationError("A feed item is missing required metadata.");
+    }
+    assertHttpUrl(item.url, "A feed item URL is invalid.");
     if (
       Number.isNaN(item.publishedAt.getTime()) ||
       (item.updatedAt !== undefined && Number.isNaN(item.updatedAt.getTime()))
     ) {
       throw new ValidationError("A feed item contains an invalid date.");
     }
+    for (const author of item.authors ?? []) {
+      if (author.name.trim() === "") {
+        throw new ValidationError("A feed item author is missing a name.");
+      }
+      if (author.url !== undefined) {
+        assertHttpUrl(author.url, "A feed item author URL is invalid.");
+      }
+    }
+    if (item.enclosure !== undefined) {
+      assertHttpUrl(item.enclosure.url, "A feed item enclosure URL is invalid.");
+      if (
+        item.enclosure.type.trim() === "" ||
+        (item.enclosure.length !== undefined &&
+          (!Number.isSafeInteger(item.enclosure.length) || item.enclosure.length < 0))
+      ) {
+        throw new ValidationError("A feed item enclosure is invalid.");
+      }
+    }
+  }
+}
+
+function assertHttpUrl(value: string, message: string): void {
+  try {
+    const url = new URL(value);
+    if (
+      value.trim() !== value ||
+      (url.protocol !== "http:" && url.protocol !== "https:") ||
+      url.username !== "" ||
+      url.password !== ""
+    ) {
+      throw new TypeError();
+    }
+  } catch {
+    throw new ValidationError(message);
   }
 }
