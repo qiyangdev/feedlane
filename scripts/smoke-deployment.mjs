@@ -36,6 +36,20 @@ await checkJson(
   },
 );
 
+await checkJson(
+  "cache-key validation error",
+  "/github/releases/acme/widget?format=rss&cacheBust=random-value",
+  400,
+  (response, body) => {
+    assert(response.headers.get("cache-control") === "private, no-store", "must not be cached");
+    assert(
+      response.headers.get("vercel-cdn-cache-control") === "private, no-store",
+      "must not be cached by Vercel",
+    );
+    assert(body.error?.code === "VALIDATION_ERROR", "returned an unexpected error");
+  },
+);
+
 if (checkUpstream) {
   await checkFeed(
     "GitHub releases RSS feed",

@@ -202,6 +202,7 @@ For a protected preview, configure a GitHub Actions repository secret named `VER
 - The Hacker News HTML route rejects unsupported lists, unexpected media types, unsafe story-link schemes, and pages with no valid stories.
 - Structured logs and metrics contain bounded route templates and sanitized error codes, not credentials or upstream payloads.
 - Generated feed URLs contain only the selected feed format and use `PUBLIC_BASE_URL` when configured.
+- Feed routes reject unknown or repeated query parameters before upstream requests, preventing unbounded CDN cache-key variants.
 - There are no automatic retries for `429` or other explicit client errors.
 - HTML parsing is limited to predefined routes with explicit upstream host allowlists; arbitrary page conversion is not supported.
 - Puppeteer and other browser-driven routes are not supported.
