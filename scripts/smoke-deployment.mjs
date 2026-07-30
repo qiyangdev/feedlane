@@ -36,8 +36,21 @@ await checkJson(
 );
 
 if (checkUpstream) {
+  await checkFeed(
+    "GitHub releases RSS feed",
+    "/github/releases/honojs/hono",
+    "application/rss+xml",
+    '<rss version="2.0"',
+    { checkReaderPolling: true },
+  );
+  await checkFeed(
+    "GitHub releases Atom feed",
+    "/github/releases/honojs/hono?format=atom",
+    "application/atom+xml",
+    '<feed xmlns="http://www.w3.org/2005/Atom"',
+  );
   await checkJson(
-    "GitHub releases feed",
+    "GitHub releases JSON feed",
     "/github/releases/honojs/hono?format=json",
     200,
     (response, body) => {
@@ -51,6 +64,12 @@ if (checkUpstream) {
       );
       assert(Array.isArray(body.items), "returned an invalid JSON Feed document");
     },
+  );
+  await checkFeed(
+    "Hacker News RSS feed",
+    "/hackernews/news",
+    "application/rss+xml",
+    '<rss version="2.0"',
   );
 }
 
@@ -78,11 +97,7 @@ function parseBaseUrl(value) {
 }
 
 async function checkJson(name, path, expectedStatus, validate) {
-  const url = new URL(path, baseUrl);
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(20_000),
-    ...(protectionBypassHeaders === undefined ? {} : { headers: protectionBypassHeaders }),
-  });
+  const response = await fetchDeployment(path);
   assert(
     response.status === expectedStatus,
     `${name} returned HTTP ${response.status}; expected ${expectedStatus}`,
@@ -97,6 +112,61 @@ async function checkJson(name, path, expectedStatus, validate) {
     );
   }
   validate(response, body);
+}
+
+async function checkFeed(
+  name,
+  path,
+  expectedContentType,
+  rootMarker,
+  { checkReaderPolling = false } = {},
+) {
+  const response = await fetchDeployment(path);
+  assert(response.status === 200, `${name} returned HTTP ${response.status}; expected 200`);
+  assert(
+    response.headers.get("content-type")?.startsWith(expectedContentType) === true,
+    `${name} returned an unexpected content type`,
+  );
+  assert(
+    response.headers.get("cache-control") === "public, max-age=60",
+    `${name} is missing its browser cache policy`,
+  );
+  const body = await response.text();
+  assert(body.includes(rootMarker), `${name} returned an invalid feed document`);
+
+  if (!checkReaderPolling) return;
+
+  const responseEtag = response.headers.get("etag");
+  assert(responseEtag !== null && responseEtag !== "", `${name} is missing an ETag`);
+
+  const headResponse = await fetchDeployment(path, { method: "HEAD" });
+  assert(headResponse.status === 200, `${name} HEAD returned HTTP ${headResponse.status}`);
+  assert(headResponse.headers.get("etag") === responseEtag, `${name} HEAD changed the ETag`);
+  assert((await headResponse.text()) === "", `${name} HEAD returned a response body`);
+
+  const conditionalResponse = await fetchDeployment(path, {
+    headers: { "If-None-Match": responseEtag },
+  });
+  assert(
+    conditionalResponse.status === 304,
+    `${name} conditional request returned HTTP ${conditionalResponse.status}; expected 304`,
+  );
+  assert(
+    conditionalResponse.headers.get("etag") === responseEtag,
+    `${name} conditional response changed the ETag`,
+  );
+}
+
+function fetchDeployment(path, init = {}) {
+  const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(protectionBypassHeaders ?? {})) {
+    headers.set(name, value);
+  }
+  return fetch(new URL(path, baseUrl), {
+    ...init,
+    headers,
+    signal: AbortSignal.timeout(20_000),
+  });
 }
 
 function assert(condition, message) {

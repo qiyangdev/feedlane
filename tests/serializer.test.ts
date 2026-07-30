@@ -1,3 +1,4 @@
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 
 import type { FeedDocument } from "../src/core/feed.js";
@@ -26,11 +27,25 @@ const document: FeedDocument = {
   ],
 };
 
+interface ParsedFeedXml {
+  rss: {
+    "@_version": string;
+    channel: { title: string };
+  };
+  feed: {
+    "@_xmlns": string;
+    title: string;
+  };
+}
+
 describe("serializeFeedDocument", () => {
   it("serializes RSS 2.0 with escaped metadata and HTML content", () => {
     const output = serializeFeedDocument(document, "rss");
+    const parsed = parseXml(output.body);
 
     expect(output.contentType).toBe("application/rss+xml; charset=utf-8");
+    expect(parsed.rss["@_version"]).toBe("2.0");
+    expect(parsed.rss.channel.title).toBe(document.title);
     expect(output.body).toContain('<rss version="2.0"');
     expect(output.body).toContain("Signals &amp; Systems &lt;Weekly&gt;");
     expect(output.body).toContain("<![CDATA[One & Two < Three > Zero]]>");
@@ -41,8 +56,11 @@ describe("serializeFeedDocument", () => {
 
   it("serializes Atom 1.0 with safe XML text", () => {
     const output = serializeFeedDocument(document, "atom");
+    const parsed = parseXml(output.body);
 
     expect(output.contentType).toBe("application/atom+xml; charset=utf-8");
+    expect(parsed.feed["@_xmlns"]).toBe("http://www.w3.org/2005/Atom");
+    expect(parsed.feed.title).toBe(document.title);
     expect(output.body).toContain('<feed xmlns="http://www.w3.org/2005/Atom">');
     expect(output.body).toContain("<![CDATA[One & Two < Three > Zero]]>");
     expect(output.body).toContain("<p>Hello <strong>feed readers</strong> &amp; friends.</p>");
@@ -99,3 +117,8 @@ describe("serializeFeedDocument", () => {
     },
   );
 });
+
+function parseXml(body: string): ParsedFeedXml {
+  expect(XMLValidator.validate(body)).toBe(true);
+  return new XMLParser({ ignoreAttributes: false }).parse(body) as ParsedFeedXml;
+}

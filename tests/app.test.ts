@@ -45,6 +45,32 @@ describe("Feedlane application", () => {
     );
   });
 
+  it("supports HEAD requests and conditional feed polling with ETags", async () => {
+    server.use(http.get(apiUrl, () => HttpResponse.json([])));
+    const app = createTestApp();
+    const feedUrl = "https://feedlane.test/github/releases/acme/widget";
+
+    const getResponse = await app.request(feedUrl);
+    const responseEtag = getResponse.headers.get("etag");
+    expect(getResponse.status).toBe(200);
+    expect(responseEtag).toMatch(/^"[a-f0-9]+"$/);
+
+    const headResponse = await app.request(feedUrl, { method: "HEAD" });
+    expect(headResponse.status).toBe(200);
+    expect(headResponse.headers.get("content-type")).toBe("application/rss+xml; charset=utf-8");
+    expect(headResponse.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(headResponse.headers.get("etag")).toBe(responseEtag);
+    await expect(headResponse.text()).resolves.toBe("");
+
+    const conditionalResponse = await app.request(feedUrl, {
+      headers: { "If-None-Match": responseEtag! },
+    });
+    expect(conditionalResponse.status).toBe(304);
+    expect(conditionalResponse.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(conditionalResponse.headers.get("etag")).toBe(responseEtag);
+    await expect(conditionalResponse.text()).resolves.toBe("");
+  });
+
   it("uses the configured public origin and removes unsupported feed URL parameters", async () => {
     server.use(http.get(apiUrl, () => HttpResponse.json([])));
     const app = createApp({
