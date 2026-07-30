@@ -1,0 +1,24 @@
+allowBuilds:
+  esbuild: true
+  msw: false
+minimumReleaseAgeExclude:
+  - "@vercel/backends@0.8.29"
+  - "@vercel/build-utils@13.36.2"
+  - "@vercel/cervel@0.1.37"
+  - "@vercel/elysia@0.1.106"
+  - "@vercel/express@0.1.120"
+  - "@vercel/fastify@0.1.109"
+  - "@vercel/gatsby-plugin-vercel-builder@2.2.32"
+  - "@vercel/h3@0.1.115"
+  - "@vercel/hono@0.2.109"
+  - "@vercel/koa@0.1.89"
+  - "@vercel/nestjs@0.2.110"
+  - "@vercel/node@5.9.2"
+  - "@vercel/python@6.54.0"
+  - "@vercel/static-build@2.11.12"
+  - "@vercel/vc-native-darwin-arm64@58.4.0"
+  - "@vercel/vc-native-darwin-x64@58.4.0"
+  - "@vercel/vc-native-linux-arm64@58.4.0"
+  - "@vercel/vc-native-linux-x64@58.4.0"
+  - "@vercel/vc-native-win32-x64@58.4.0"
+  - vercel@58.4.0
