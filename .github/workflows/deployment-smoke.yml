@@ -2,6 +2,8 @@ name: Deployment Smoke
 
 on:
   deployment_status:
+  schedule:
+    - cron: "17 2 * * *"
   workflow_dispatch:
     inputs:
       deployment_url:
@@ -22,13 +24,14 @@ jobs:
     name: Smoke
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       (github.event.deployment_status.state == 'success' &&
       github.event.deployment_status.environment_url != '')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      FEEDLANE_BASE_URL: ${{ inputs.deployment_url || github.event.deployment_status.environment_url }}
-      FEEDLANE_SMOKE_UPSTREAM: ${{ inputs.check_upstream || 'false' }}
+      FEEDLANE_BASE_URL: ${{ inputs.deployment_url || github.event.deployment_status.environment_url || vars.FEEDLANE_PRODUCTION_URL }}
+      FEEDLANE_SMOKE_UPSTREAM: ${{ github.event_name == 'schedule' && 'true' || inputs.check_upstream || 'false' }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       VERCEL_AUTOMATION_BYPASS_PROJECT_SLUG: ${{ vars.VERCEL_AUTOMATION_BYPASS_PROJECT_SLUG }}
       VERCEL_AUTOMATION_BYPASS_TEAM_SLUG: ${{ vars.VERCEL_AUTOMATION_BYPASS_TEAM_SLUG }}

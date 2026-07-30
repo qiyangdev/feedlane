@@ -86,6 +86,7 @@ curl 'http://localhost:3000/github/releases/honojs/hono?format=json'
 ```
 
 Successful feeds use browser caching for 60 seconds and Vercel CDN caching for 10 minutes, with a stale-while-revalidate window. Errors are marked `private, no-store`.
+Feed responses include strong ETags. Feed readers can use `HEAD` to inspect feed metadata and `If-None-Match` to receive `304 Not Modified` when the serialized feed has not changed.
 
 ## Hacker News lists route
 
@@ -160,7 +161,7 @@ Feedlane uses Vercel's Hono framework detection and exports the app from `src/in
 
 Node.js 24 is selected through the `engines` field. Vercel detects and bundles the default Hono application export as a Vercel Function. Feedlane uses response headers for Vercel CDN caching; it does not use Runtime Cache, Redis, or Vercel Cron.
 
-GitHub Actions validates the project but does not deploy it. Deployments remain user-triggered through Vercel or the connected Git provider. Successful GitHub deployment status events run a deployment smoke test against health, readiness, route discovery, and sanitized error handling. The same test can be started manually with a deployment URL. Add `--upstream` locally, or enable the workflow input, to also exercise the GitHub releases route:
+GitHub Actions validates the project but does not deploy it. Deployments remain user-triggered through Vercel or the connected Git provider. Successful GitHub deployment status events run a deployment smoke test against health, readiness, route discovery, and sanitized error handling. A daily scheduled run uses the `FEEDLANE_PRODUCTION_URL` repository variable to exercise the public production RSS, Atom, JSON Feed, ETag, conditional request, and Hacker News paths. The same test can be started manually with a deployment URL. Add `--upstream` locally, or enable the workflow input, to run the full feed-reader compatibility checks:
 
 ```bash
 pnpm smoke:deployment -- https://your-preview.vercel.app --upstream

@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "fast-xml-parser": "5.10.1",
     "msw": "2.15.0",
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { etag } from "hono/etag";
 import { z } from "zod";
 
 import { RouteNotFoundError, ValidationError } from "./core/errors.js";
@@ -83,6 +84,7 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
   });
 
   for (const route of registry.list()) {
+    app.use(route.path, etag());
     app.get(route.path, async (context) => {
       const formatResult = formatSchema.safeParse(context.req.query("format") ?? "rss");
       if (!formatResult.success) {
