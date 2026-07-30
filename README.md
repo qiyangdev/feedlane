@@ -48,6 +48,8 @@ pnpm typecheck
 pnpm format:check
 pnpm lint
 pnpm build
+pnpm build:smoke # Run after pnpm build
+pnpm smoke:deployment -- https://your-preview.vercel.app
 pnpm check
 ```
 
@@ -55,9 +57,10 @@ Pull requests and pushes to `main` run the same `pnpm check` pipeline in GitHub 
 
 ## Environment variables
 
-| Variable       | Required | Purpose                                                                         |
-| -------------- | -------- | ------------------------------------------------------------------------------- |
-| `GITHUB_TOKEN` | No       | Raises GitHub API rate limits. Sent only to `api.github.com` as a bearer token. |
+| Variable          | Required | Purpose                                                                         |
+| ----------------- | -------- | ------------------------------------------------------------------------------- |
+| `GITHUB_TOKEN`    | No       | Raises GitHub API rate limits. Sent only to `api.github.com` as a bearer token. |
+| `PUBLIC_BASE_URL` | No       | Canonical public origin used in generated feed URLs.                            |
 
 Never commit `.env` or `.env.local`. Feedlane does not include tokens, upstream response bodies, sensitive headers, stack traces, or internal paths in production error responses.
 
@@ -82,7 +85,7 @@ curl 'http://localhost:3000/github/releases/honojs/hono?format=atom'
 curl 'http://localhost:3000/github/releases/honojs/hono?format=json'
 ```
 
-Successful feeds use browser caching for 60 seconds and Vercel CDN caching for 10 minutes, with stale-while-revalidate and stale-if-error windows. Errors are marked `private, no-store`.
+Successful feeds use browser caching for 60 seconds and Vercel CDN caching for 10 minutes, with a stale-while-revalidate window. Errors are marked `private, no-store`.
 
 ## Hacker News lists route
 
@@ -152,20 +155,27 @@ Feedlane uses Vercel's Hono framework detection and exports the app from `src/in
 
 1. Import the repository into Vercel or link it with `vercel link`.
 2. Add `GITHUB_TOKEN` in the project environment settings if desired.
-3. Run `vercel deploy`, or let a connected Git provider create deployments.
+3. Set `PUBLIC_BASE_URL` to the production origin when requests may arrive through another host.
+4. Run `vercel deploy`, or let a connected Git provider create deployments.
 
 Node.js 24 is selected through the `engines` field. Vercel detects and bundles the default Hono application export as a Vercel Function. Feedlane uses response headers for Vercel CDN caching; it does not use Runtime Cache, Redis, or Vercel Cron.
 
-GitHub Actions validates the project but does not deploy it. Deployments remain user-triggered through Vercel or the connected Git provider.
+GitHub Actions validates the project but does not deploy it. Deployments remain user-triggered through Vercel or the connected Git provider. Successful GitHub deployment status events run a deployment smoke test against health, readiness, route discovery, and sanitized error handling. The same test can be started manually with a deployment URL. Add `--upstream` locally, or enable the workflow input, to also exercise the GitHub releases route:
+
+```bash
+pnpm smoke:deployment -- https://your-preview.vercel.app --upstream
+```
 
 ## Security boundaries and current limitations
 
 - Upstream URLs are constructed by routes, restricted to HTTPS, and checked against a route-level hostname allowlist.
 - Automatic redirects and arbitrary proxy targets are rejected.
 - Fetches have a 10-second timeout and a 2 MiB response-body limit.
+- Error status responses are classified without consuming their response bodies.
 - GitHub 404, rate-limit, and other upstream failures map to sanitized API errors.
 - The Hacker News HTML route rejects unsupported lists, unexpected media types, unsafe story-link schemes, and pages with no valid stories.
 - Structured logs and metrics contain bounded route templates and sanitized error codes, not credentials or upstream payloads.
+- Generated feed URLs contain only the selected feed format and use `PUBLIC_BASE_URL` when configured.
 - There are no automatic retries for `429` or other explicit client errors.
 - HTML parsing is limited to predefined routes with explicit upstream host allowlists; arbitrary page conversion is not supported.
 - Puppeteer and other browser-driven routes are not supported.

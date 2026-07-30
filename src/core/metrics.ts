@@ -1,4 +1,15 @@
 const DEFAULT_DURATION_BUCKETS_MS = [10, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000];
+const STANDARD_HTTP_METHODS = new Set([
+  "CONNECT",
+  "DELETE",
+  "GET",
+  "HEAD",
+  "OPTIONS",
+  "PATCH",
+  "POST",
+  "PUT",
+  "TRACE",
+]);
 
 export interface RequestMeasurement {
   method: string;
@@ -38,7 +49,7 @@ export class RequestMetrics {
   }
 
   record(measurement: RequestMeasurement): void {
-    const method = measurement.method.toUpperCase();
+    const method = normalizeMethod(measurement.method);
     const durationMs = normalizeDuration(measurement.durationMs);
     const statusGroup = `${Math.floor(measurement.status / 100)}xx`;
     const counterKey = JSON.stringify([method, measurement.route, statusGroup]);
@@ -123,6 +134,11 @@ export class RequestMetrics {
 
     return `${lines.join("\n")}\n`;
   }
+}
+
+function normalizeMethod(method: string): string {
+  const normalized = method.toUpperCase();
+  return STANDARD_HTTP_METHODS.has(normalized) ? normalized : "OTHER";
 }
 
 function validateBuckets(buckets: readonly number[]): readonly number[] {

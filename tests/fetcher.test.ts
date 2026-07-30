@@ -11,7 +11,7 @@ import { HttpFetcher } from "../src/core/fetcher.js";
 const targetUrl = "https://api.example.test/resources";
 const allowedHosts = ["api.example.test"];
 
-function response(body: string, init: ResponseInit = {}): Response {
+function response(body: BodyInit | null, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   if (!headers.has("content-type")) {
     headers.set("content-type", "application/json");
@@ -157,6 +157,31 @@ describe("HttpFetcher", () => {
     await expect(promise).rejects.not.toThrow("must not leak");
   });
 
+  it("classifies an error response without reading its body", async () => {
+    let bodyCancelled = false;
+    const fetch = mockFetch(async () =>
+      response(
+        new ReadableStream({
+          pull() {
+            throw new Error("the error body must not be read");
+          },
+          cancel() {
+            bodyCancelled = true;
+          },
+        }),
+        {
+          status: 404,
+          headers: { "content-length": "9999999" },
+        },
+      ),
+    );
+
+    await expect(
+      new HttpFetcher({ fetch }).json(targetUrl, { allowedHosts, maxResponseBytes: 10 }),
+    ).rejects.toBeInstanceOf(UpstreamNotFoundError);
+    expect(bodyCancelled).toBe(true);
+  });
+
   it("rejects a declared response that is too large", async () => {
     const fetch = mockFetch(async () => response("{}", { headers: { "content-length": "100" } }));
 
@@ -177,6 +202,41 @@ describe("HttpFetcher", () => {
         maxResponseBytes: 4,
       }),
     ).rejects.toThrow("exceeded the size limit");
+  });
+
+  it("maps response stream failures to a sanitized upstream error", async () => {
+    const fetch = mockFetch(async () =>
+      response(
+        new ReadableStream({
+          pull(controller) {
+            controller.error(new Error("private socket details"));
+          },
+        }),
+      ),
+    );
+
+    const promise = new HttpFetcher({ fetch }).json(targetUrl, { allowedHosts });
+
+    await expect(promise).rejects.toBeInstanceOf(UpstreamResponseError);
+    await expect(promise).rejects.toThrow("could not be read");
+    await expect(promise).rejects.not.toThrow("private socket details");
+  });
+
+  it("maps a timeout while reading the response stream", async () => {
+    const fetch = mockFetch(async (_url, init) => {
+      const signal = init.signal as AbortSignal;
+      return response(
+        new ReadableStream({
+          start(controller) {
+            signal.addEventListener("abort", () => controller.error(signal.reason), { once: true });
+          },
+        }),
+      );
+    });
+
+    await expect(
+      new HttpFetcher({ fetch }).json(targetUrl, { allowedHosts, timeoutMs: 1 }),
+    ).rejects.toThrow("timed out");
   });
 
   it.each([

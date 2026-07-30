@@ -1,0 +1,43 @@
+name: Deployment Smoke
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Preview or production deployment origin
+        required: true
+        type: string
+      check_upstream:
+        description: Exercise the GitHub releases route
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment_url != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FEEDLANE_BASE_URL: ${{ inputs.deployment_url || github.event.deployment_status.environment_url }}
+      FEEDLANE_SMOKE_UPSTREAM: ${{ inputs.check_upstream || 'false' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check deployment
+        run: node scripts/smoke-deployment.mjs

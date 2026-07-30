@@ -88,35 +88,34 @@ export class HttpFetcher {
       headers.set("Authorization", `Bearer ${options.token}`);
     }
 
+    const signal = AbortSignal.timeout(timeoutMs);
     let response: Response;
     try {
       response = await this.#fetch(url, {
         method: "GET",
         headers,
         redirect: "manual",
-        signal: AbortSignal.timeout(timeoutMs),
+        signal,
       });
     } catch (error) {
       const message =
-        error instanceof DOMException && error.name === "TimeoutError"
+        signal.aborted || (error instanceof DOMException && error.name === "TimeoutError")
           ? "The upstream request timed out."
           : "The upstream service could not be reached.";
       throw new UpstreamResponseError(message, { cause: error });
     }
 
-    const body = await readLimitedBody(response, maxResponseBytes);
+    throwForErrorStatus(response);
 
-    if (response.status === 404) {
-      throw new UpstreamNotFoundError();
-    }
-    if (
-      response.status === 429 ||
-      (response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0")
-    ) {
-      throw new UpstreamRateLimitError();
-    }
-    if (!response.ok) {
-      throw new UpstreamResponseError(`The upstream service returned HTTP ${response.status}.`);
+    let body: string;
+    try {
+      body = await readLimitedBody(response, maxResponseBytes);
+    } catch (error) {
+      if (error instanceof UpstreamResponseError) throw error;
+      const message = signal.aborted
+        ? "The upstream request timed out."
+        : "The upstream response could not be read.";
+      throw new UpstreamResponseError(message, { cause: error });
     }
 
     return {
@@ -124,6 +123,27 @@ export class HttpFetcher {
       contentType: response.headers.get("content-type")?.toLowerCase() ?? "",
     };
   }
+}
+
+function throwForErrorStatus(response: Response): void {
+  let error: UpstreamNotFoundError | UpstreamRateLimitError | UpstreamResponseError | undefined;
+  if (response.status === 404) {
+    error = new UpstreamNotFoundError();
+  } else if (
+    response.status === 429 ||
+    (response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0")
+  ) {
+    error = new UpstreamRateLimitError();
+  } else if (!response.ok) {
+    error = new UpstreamResponseError(`The upstream service returned HTTP ${response.status}.`);
+  }
+
+  if (error === undefined) return;
+
+  void response.body?.cancel().catch(() => {
+    // The status-derived error is authoritative; never expose or replace it with stream details.
+  });
+  throw error;
 }
 
 function isJsonMediaType(contentType: string): boolean {

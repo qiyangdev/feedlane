@@ -184,6 +184,26 @@ describe("operational endpoints", () => {
 });
 
 describe("RequestMetrics", () => {
+  it("collapses nonstandard HTTP methods into a bounded label", () => {
+    const metrics = new RequestMetrics();
+    for (const method of ["probe-a", "PROBE-B"]) {
+      metrics.record({
+        method,
+        route: "unmatched",
+        status: 404,
+        durationMs: 1,
+      });
+    }
+
+    const output = metrics.renderPrometheus();
+
+    expect(output).toContain(
+      'feedlane_http_requests_total{method="OTHER",route="unmatched",status="4xx"} 2',
+    );
+    expect(output).not.toContain("PROBE-A");
+    expect(output).not.toContain("PROBE-B");
+  });
+
   it.each([[[]], [[10, 10]], [[100, 10]], [[0, 10]]])(
     "rejects invalid histogram buckets: %j",
     (durationBucketsMs) => {
