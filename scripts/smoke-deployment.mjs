@@ -4,6 +4,7 @@ const baseUrlInput = process.argv.find(
 const baseUrl = parseBaseUrl(baseUrlInput ?? process.env.FEEDLANE_BASE_URL);
 const checkUpstream =
   process.argv.includes("--upstream") || process.env.FEEDLANE_SMOKE_UPSTREAM === "true";
+const protectionBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 await checkJson("liveness", "/health/live", 200, (response, body) => {
   assert(response.headers.get("cache-control") === "private, no-store", "must not be cached");
@@ -76,7 +77,12 @@ function parseBaseUrl(value) {
 
 async function checkJson(name, path, expectedStatus, validate) {
   const url = new URL(path, baseUrl);
-  const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(20_000),
+    ...(protectionBypassSecret === undefined || protectionBypassSecret === ""
+      ? {}
+      : { headers: { "x-vercel-protection-bypass": protectionBypassSecret } }),
+  });
   assert(
     response.status === expectedStatus,
     `${name} returned HTTP ${response.status}; expected ${expectedStatus}`,
@@ -86,7 +92,9 @@ async function checkJson(name, path, expectedStatus, validate) {
   try {
     body = await response.json();
   } catch {
-    throw new Error(`${name} did not return JSON.`);
+    throw new Error(
+      `${name} did not return JSON. For a protected Vercel deployment, set VERCEL_AUTOMATION_BYPASS_SECRET.`,
+    );
   }
   validate(response, body);
 }

@@ -166,6 +166,8 @@ GitHub Actions validates the project but does not deploy it. Deployments remain 
 pnpm smoke:deployment -- https://your-preview.vercel.app --upstream
 ```
 
+For a protected preview, configure a GitHub Actions repository secret named `VERCEL_AUTOMATION_BYPASS_SECRET` with the project's Vercel Protection Bypass for Automation value. The smoke script sends it only in the `x-vercel-protection-bypass` request header and never prints it.
+
 ## Security boundaries and current limitations
 
 - Upstream URLs are constructed by routes, restricted to HTTPS, and checked against a route-level hostname allowlist.
