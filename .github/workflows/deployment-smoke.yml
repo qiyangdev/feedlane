@@ -30,6 +30,8 @@ jobs:
       FEEDLANE_BASE_URL: ${{ inputs.deployment_url || github.event.deployment_status.environment_url }}
       FEEDLANE_SMOKE_UPSTREAM: ${{ inputs.check_upstream || 'false' }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      VERCEL_AUTOMATION_BYPASS_PROJECT_SLUG: ${{ vars.VERCEL_AUTOMATION_BYPASS_PROJECT_SLUG }}
+      VERCEL_AUTOMATION_BYPASS_TEAM_SLUG: ${{ vars.VERCEL_AUTOMATION_BYPASS_TEAM_SLUG }}
 
     steps:
       - name: Check out repository
