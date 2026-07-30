@@ -58,9 +58,11 @@ Each route must:
 5. Validate JSON payloads with Zod, or validate the expected structure of parsed HTML.
 6. Return Feedlane's `FeedDocument` model rather than serializer-specific objects.
 7. Use stable item IDs and valid HTTP item URLs.
-8. Escape all untrusted text included in generated HTML with `escapeHtml`.
+8. Escape all untrusted text included in generated HTML with `escapeHtml`. For readable-page extraction, pass only already-fetched HTML to `extractReadableContent` and use its sanitized `contentHtml` output.
 9. Choose a cache TTL appropriate to the upstream update frequency and rate limits.
 10. Map unexpected upstream content to a sanitized Feedlane error without logging response bodies or credentials.
+
+Routes that fetch item detail pages must also set an explicit item limit, concurrency limit, timeout, response-size budget, content-size budget, and partial-failure policy. Defuddle or any future content parser must not fetch URLs directly or enable third-party network fallbacks; `HttpFetcher` remains the only upstream network boundary.
 
 Feed routes accept only one optional query parameter: `format=rss|atom|json`. Route-specific filters belong in validated path parameters unless the core request contract is deliberately extended in a separate proposal.
 
@@ -80,6 +82,8 @@ At minimum, tests must cover:
 - Conversion of a representative upstream response.
 - The route title, item IDs, links, dates, content, authors, and categories that matter to readers.
 - HTML escaping when upstream text appears in `contentHtml`.
+- Script removal, dangerous URL removal, link resolution, and size limits for extracted readable content.
+- Detail-item limits, concurrency limits, and the documented partial-failure behavior.
 - Invalid path parameters being rejected before an upstream request.
 - Malformed or structurally unexpected upstream responses.
 - Relevant upstream errors such as `404` and rate limiting.

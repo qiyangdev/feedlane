@@ -93,6 +93,7 @@ if (checkUpstream) {
     "/v2ex/topics/hot",
     "application/rss+xml",
     '<rss version="2.0"',
+    { timeoutMs: 45_000 },
   );
 }
 
@@ -142,9 +143,9 @@ async function checkFeed(
   path,
   expectedContentType,
   rootMarker,
-  { checkReaderPolling = false } = {},
+  { checkReaderPolling = false, timeoutMs = 20_000 } = {},
 ) {
-  const response = await fetchDeployment(path);
+  const response = await fetchDeployment(path, {}, timeoutMs);
   assert(response.status === 200, `${name} returned HTTP ${response.status}; expected 200`);
   assert(
     response.headers.get("content-type")?.startsWith(expectedContentType) === true,
@@ -180,7 +181,7 @@ async function checkFeed(
   );
 }
 
-function fetchDeployment(path, init = {}) {
+function fetchDeployment(path, init = {}, timeoutMs = 20_000) {
   const headers = new Headers(init.headers);
   for (const [name, value] of Object.entries(protectionBypassHeaders ?? {})) {
     headers.set(name, value);
@@ -188,7 +189,7 @@ function fetchDeployment(path, init = {}) {
   return fetch(new URL(path, baseUrl), {
     ...init,
     headers,
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 }
 

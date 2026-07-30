@@ -141,7 +141,9 @@ Hacker News feeds use browser caching for 60 seconds and Vercel CDN caching for 
 GET /v2ex/topics/hot
 ```
 
-The route parses V2EX's public `?tab=hot` page without requiring a V2EX access token. Each canonical topic URL is used as the stable item ID. Items include the node, author, reply count, and the page's latest activity timestamp. Because the hot page does not expose the original topic creation time, that activity timestamp is used for the feed item's publication and update dates.
+The route parses V2EX's public `?tab=hot` page without requiring a V2EX access token, then fetches the first 10 topic pages to include each original post in the feed. Defuddle extracts the selected topic content locally, after which a strict HTML allowlist removes scripts, event handlers, unsafe URLs, and other active content. Defuddle's optional third-party network fallback is disabled; every upstream request still goes through Feedlane's fixed `www.v2ex.com` allowlist.
+
+Each canonical topic URL is used as the stable item ID. The detail page supplies the original publication time, while the hot list supplies the latest activity time. Items also include the node, author, and reply count. Replies are not copied into the item body.
 
 Examples:
 
@@ -151,7 +153,7 @@ curl 'http://localhost:3000/v2ex/topics/hot?format=atom'
 curl 'http://localhost:3000/v2ex/topics/hot?format=json'
 ```
 
-V2EX hot-topic feeds use browser caching for 60 seconds and Vercel CDN caching for 5 minutes. Unsupported tab names, unsafe links, malformed activity dates, and pages with no valid topic rows are rejected or mapped to sanitized errors.
+V2EX hot-topic feeds use browser caching for 60 seconds and Vercel CDN caching for 10 minutes. Detail requests run with bounded concurrency, time, response-size, and extracted-content budgets. One failed detail falls back to the safe summary for that item; a request where no details can be enriched returns a sanitized upstream error.
 
 ## Adding a route
 
@@ -170,7 +172,7 @@ pnpm route:new -- <source> <route-name>
 5. Wrap the definition with `defineFeedRoute` and add it to `src/routes/index.ts`.
 6. Add MSW-backed tests for conversion, validation, and upstream error behavior. Tests must not call the real upstream service.
 
-The fetcher intentionally rejects plain HTTP, credentials in URLs, nonstandard ports, hosts outside the route allowlist, redirects, unexpected JSON/HTML content types, oversized bodies, and slow requests. HTML routes must validate their parsed structure and safely encode generated HTML content. Do not add a route that accepts an arbitrary target URL: that would turn Feedlane into an open proxy and create an SSRF boundary failure.
+The fetcher intentionally rejects plain HTTP, credentials in URLs, nonstandard ports, hosts outside the route allowlist, redirects, unexpected JSON/HTML content types, oversized bodies, and slow requests. HTML routes must validate their parsed structure and safely encode generated HTML content. Routes that need readable page content can pass already-fetched HTML to `extractReadableContent`; the extractor never replaces the fetcher's hostname boundary and its output is sanitized before it reaches `contentHtml`. Do not add a route that accepts an arbitrary target URL: that would turn Feedlane into an open proxy and create an SSRF boundary failure.
 
 ## Observability and health
 
@@ -226,12 +228,13 @@ For a protected preview, configure a GitHub Actions repository secret named `VER
 - Error status responses are classified without consuming their response bodies.
 - GitHub 404, rate-limit, and other upstream failures map to sanitized API errors.
 - The Hacker News HTML route rejects unsupported lists, unexpected media types, unsafe story-link schemes, and pages with no valid stories.
-- The V2EX HTML route accepts only the `hot` tab and rejects unexpected media types, off-origin links, malformed timestamps, and pages with no valid topics.
+- The V2EX HTML route accepts only the `hot` tab, enriches at most 10 fixed-host topic pages per request, and rejects unexpected media types, off-origin links, malformed timestamps, unsafe extracted HTML, and pages with no usable details.
 - Structured logs and metrics contain bounded route templates and sanitized error codes, not credentials or upstream payloads.
 - Generated feed URLs contain only the selected feed format and use `PUBLIC_BASE_URL` when configured.
 - Feed routes reject unknown or repeated query parameters before upstream requests, preventing unbounded CDN cache-key variants.
 - There are no automatic retries for `429` or other explicit client errors.
 - HTML parsing is limited to predefined routes with explicit upstream host allowlists; arbitrary page conversion is not supported.
+- Defuddle processes only HTML already fetched by Feedlane, runs without third-party network fallbacks, and is followed by a separate HTML sanitization pass.
 - Puppeteer and other browser-driven routes are not supported.
 
 ## License
