@@ -9,7 +9,8 @@
     "dev": "tsx watch src/dev.ts",
     "route:new": "node scripts/create-route.mjs",
     "build": "tsc -p tsconfig.build.json",
-    "build:smoke": "node scripts/smoke-build.mjs",
+    "build:smoke": "node --no-experimental-require-module scripts/smoke-build.mjs",
+    "check:vercel": "node --no-experimental-require-module scripts/check-vercel-build.mjs",
     "smoke:deployment": "node scripts/smoke-deployment.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint --deny-warnings .",
@@ -25,7 +26,7 @@
     "feed": "6.0.0",
     "hono": "4.12.32",
     "linkedom": "0.18.13",
-    "sanitize-html": "2.17.6",
+    "sanitize-html": "2.17.5",
     "zod": "4.4.3"
   },
   "devDependencies": {

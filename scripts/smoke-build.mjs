@@ -1,19 +1,9 @@
-const { default: app } = await import("../dist/index.js");
+import { resolve } from "node:path";
 
-if (typeof app?.fetch !== "function") {
-  throw new TypeError("The production entry point must export a Hono application by default.");
-}
+import { smokeRuntime } from "./runtime-smoke.mjs";
 
-const response = await app.request("https://feedlane.test/health/live");
-const body = await response.json();
-
-if (
-  response.status !== 200 ||
-  response.headers.get("cache-control") !== "private, no-store" ||
-  body.status !== "ok" ||
-  body.service !== "feedlane"
-) {
-  throw new Error("The compiled production entry point failed its health check.");
-}
-
-console.log("Compiled production entry point smoke test passed.");
+await smokeRuntime({
+  appModulePath: resolve("dist/index.js"),
+  contentModulePath: resolve("dist/core/content.js"),
+  label: "Compiled production entry point",
+});

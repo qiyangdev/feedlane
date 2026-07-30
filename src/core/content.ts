@@ -1,6 +1,4 @@
-import { DefuddleClass } from "defuddle/node";
-import { parseHTML } from "linkedom";
-import sanitizeHtml from "sanitize-html";
+import type sanitizeHtmlFunction from "sanitize-html";
 
 const DEFAULT_MAX_CONTENT_BYTES = 128 * 1024;
 
@@ -67,9 +65,18 @@ export interface ExtractedPageContent {
   wordCount?: number;
 }
 
-export function extractReadableContent(
+interface ContentDependencies {
+  DefuddleClass: typeof import("defuddle/node").DefuddleClass;
+  parseHTML: typeof import("linkedom").parseHTML;
+  sanitizeHtml: typeof sanitizeHtmlFunction;
+}
+
+let contentDependenciesPromise: Promise<ContentDependencies> | undefined;
+
+export async function extractReadableContent(
   input: ExtractReadableContentInput,
-): ExtractedPageContent | undefined {
+): Promise<ExtractedPageContent | undefined> {
+  const { DefuddleClass, parseHTML, sanitizeHtml } = await loadContentDependencies();
   const { document } = parseHTML(input.html);
   const result = new DefuddleClass(document as unknown as Document, {
     url: input.pageUrl.toString(),
@@ -79,7 +86,7 @@ export function extractReadableContent(
     useAsync: false,
   }).parse();
 
-  const contentHtml = sanitizeExtractedHtml(result.content, input.pageUrl);
+  const contentHtml = sanitizeExtractedHtml(result.content, input.pageUrl, sanitizeHtml);
   const maxContentBytes = input.maxContentBytes ?? DEFAULT_MAX_CONTENT_BYTES;
   if (
     contentHtml === "" ||
@@ -104,7 +111,24 @@ export function extractReadableContent(
   };
 }
 
-function sanitizeExtractedHtml(value: string, pageUrl: URL): string {
+function loadContentDependencies(): Promise<ContentDependencies> {
+  contentDependenciesPromise ??= Promise.all([
+    import("defuddle/node"),
+    import("linkedom"),
+    import("sanitize-html"),
+  ]).then(([defuddle, linkedom, sanitizeHtml]) => ({
+    DefuddleClass: defuddle.DefuddleClass,
+    parseHTML: linkedom.parseHTML,
+    sanitizeHtml: sanitizeHtml.default,
+  }));
+  return contentDependenciesPromise;
+}
+
+function sanitizeExtractedHtml(
+  value: string,
+  pageUrl: URL,
+  sanitizeHtml: ContentDependencies["sanitizeHtml"],
+): string {
   const sanitized = sanitizeHtml(value, {
     allowedTags,
     allowedAttributes: {

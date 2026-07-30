@@ -48,7 +48,8 @@ pnpm typecheck
 pnpm format:check
 pnpm lint
 pnpm build
-pnpm build:smoke # Run after pnpm build
+pnpm build:smoke # Run after pnpm build; includes Vercel-compatible module loading
+pnpm check:vercel # Build for Vercel production and exercise the packaged function
 pnpm smoke:deployment -- https://your-preview.vercel.app
 pnpm check
 ```
@@ -141,7 +142,7 @@ Hacker News feeds use browser caching for 60 seconds and Vercel CDN caching for 
 GET /v2ex/topics/hot
 ```
 
-The route parses V2EX's public `?tab=hot` page without requiring a V2EX access token, then fetches the first 10 topic pages to include each original post in the feed. Defuddle extracts the selected topic content locally, after which a strict HTML allowlist removes scripts, event handlers, unsafe URLs, and other active content. Defuddle's optional third-party network fallback is disabled; every upstream request still goes through Feedlane's fixed `www.v2ex.com` allowlist.
+The route parses V2EX's public `?tab=hot` page without requiring a V2EX access token, then fetches the first 10 topic pages to include each original post in the feed. Defuddle extracts the selected topic content locally, after which a strict HTML allowlist removes scripts, event handlers, unsafe URLs, and other active content. The content-parser dependency graph is loaded only when readable content is requested, so a parser-specific startup failure cannot take down health checks or unrelated feed routes. Defuddle's optional third-party network fallback is disabled; every upstream request still goes through Feedlane's fixed `www.v2ex.com` allowlist.
 
 Each canonical topic URL is used as the stable item ID. The detail page supplies the original publication time, while the hot list supplies the latest activity time. Items also include the node, author, and reply count. Replies are not copied into the item body.
 
@@ -217,6 +218,8 @@ GitHub Actions validates the project but does not deploy it. Deployments remain 
 ```bash
 pnpm smoke:deployment -- https://your-preview.vercel.app --upstream
 ```
+
+`pnpm check` runs the compiled entry point and readable-content dependencies with Node's permissive CommonJS-to-ESM bridge disabled, matching Vercel's stricter function loader. Run `pnpm check:vercel` in a linked Vercel checkout to build for production and apply the same check to `.vercel/output` without deploying it.
 
 For a protected preview, configure a GitHub Actions repository secret named `VERCEL_AUTOMATION_BYPASS_SECRET` with the project's Vercel Protection Bypass for Automation value. Also configure repository variables named `VERCEL_AUTOMATION_BYPASS_PROJECT_SLUG` and `VERCEL_AUTOMATION_BYPASS_TEAM_SLUG` with the Vercel project and team slugs. The smoke script sends the secret only when the HTTPS target hostname exactly matches Vercel's generated `<project>-<deployment-id>-<team>.vercel.app` form. Other targets fail closed without receiving the header, and the secret is never printed.
 

@@ -58,7 +58,7 @@ Each route must:
 5. Validate JSON payloads with Zod, or validate the expected structure of parsed HTML.
 6. Return Feedlane's `FeedDocument` model rather than serializer-specific objects.
 7. Use stable item IDs and valid HTTP item URLs.
-8. Escape all untrusted text included in generated HTML with `escapeHtml`. For readable-page extraction, pass only already-fetched HTML to `extractReadableContent` and use its sanitized `contentHtml` output.
+8. Escape all untrusted text included in generated HTML with `escapeHtml`. For readable-page extraction, pass only already-fetched HTML to `await extractReadableContent(...)` and use its sanitized `contentHtml` output.
 9. Choose a cache TTL appropriate to the upstream update frequency and rate limits.
 10. Map unexpected upstream content to a sanitized Feedlane error without logging response bodies or credentials.
 
@@ -102,6 +102,8 @@ Before opening a pull request:
 5. Run `pnpm check`.
 
 Keep route pull requests focused. Changes to core contracts, generic fetch behavior, deployment configuration, or unrelated routes should normally be proposed separately.
+
+Maintainers changing runtime dependencies or the shared content parser should also run `pnpm check:vercel` from a linked Vercel checkout. This builds the production function and exercises both application startup and readable-content loading under Vercel-compatible CommonJS/ESM semantics without deploying it.
 
 ## Pull requests
 

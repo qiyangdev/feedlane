@@ -173,7 +173,7 @@ async function enrichTopic(topic: ParsedTopic, fetcher: HttpFetcher): Promise<En
     const publishedAt = parseV2exDate(
       $(".box .header small.gray span[title]").first().attr("title"),
     );
-    const content = extractReadableContent({
+    const content = await extractReadableContent({
       html,
       pageUrl: detailUrl,
       contentSelector: ".topic_content",

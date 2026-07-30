@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { extractReadableContent } from "../src/core/content.js";
 
 describe("readable content extraction", () => {
-  it("uses Defuddle and sanitizes the extracted HTML", () => {
-    const result = extractReadableContent({
+  it("uses Defuddle and sanitizes the extracted HTML", async () => {
+    const result = await extractReadableContent({
       pageUrl: new URL("https://example.com/articles/one"),
       contentSelector: "article",
       html: `<!doctype html>
@@ -40,8 +40,8 @@ describe("readable content extraction", () => {
     expect(result?.contentHtml).not.toMatch(/onclick|onerror|javascript:|<script/i);
   });
 
-  it("rejects content that exceeds the configured output budget", () => {
-    const result = extractReadableContent({
+  it("rejects content that exceeds the configured output budget", async () => {
+    const result = await extractReadableContent({
       pageUrl: new URL("https://example.com/large"),
       contentSelector: "article",
       maxContentBytes: 32,
@@ -51,8 +51,8 @@ describe("readable content extraction", () => {
     expect(result).toBeUndefined();
   });
 
-  it("rejects pages without meaningful readable content", () => {
-    const result = extractReadableContent({
+  it("rejects pages without meaningful readable content", async () => {
+    const result = await extractReadableContent({
       pageUrl: new URL("https://example.com/empty"),
       contentSelector: "article",
       html: "<html><body><article><script>alert(1)</script></article></body></html>",
