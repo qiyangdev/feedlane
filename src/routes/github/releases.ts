@@ -4,20 +4,11 @@ import type { FeedItem } from "../../core/feed.js";
 import { UpstreamResponseError } from "../../core/errors.js";
 import { escapeHtml } from "../../core/html.js";
 import { defineFeedRoute, type FeedRoute } from "../../core/route.js";
-
-const parameters = z.object({
-  owner: z
-    .string()
-    .min(1)
-    .max(39)
-    .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/),
-  repo: z
-    .string()
-    .min(1)
-    .max(100)
-    .regex(/^[A-Za-z0-9_.-]+$/)
-    .refine((value) => value !== "." && value !== ".."),
-});
+import {
+  GITHUB_API_VERSION,
+  githubRepositoryParameters,
+  type GithubRepositoryParameters,
+} from "./shared.js";
 
 const githubRelease = z.object({
   id: z.number().int().nonnegative(),
@@ -37,20 +28,17 @@ const githubRelease = z.object({
 });
 
 const githubReleases = z.array(githubRelease);
-type GithubReleaseParameters = z.infer<typeof parameters>;
-
-const GITHUB_API_VERSION = "2026-03-10";
 
 export interface GithubReleasesRouteOptions {
   token: string | undefined;
 }
 
 export function createGithubReleasesRoute(options: GithubReleasesRouteOptions) {
-  const definition: FeedRoute<GithubReleaseParameters> = {
+  const definition: FeedRoute<GithubRepositoryParameters> = {
     path: "/github/releases/:owner/:repo",
     name: "GitHub releases",
     description: "Published releases for a public GitHub repository.",
-    parameters,
+    parameters: githubRepositoryParameters,
     cacheTtl: 600,
     async handler({ params, requestUrl, fetcher }) {
       const apiUrl = new URL(

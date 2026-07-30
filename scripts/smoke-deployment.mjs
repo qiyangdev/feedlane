@@ -67,6 +67,12 @@ if (checkUpstream) {
     },
   );
   await checkFeed(
+    "GitHub commits RSS feed",
+    "/github/commits/honojs/hono",
+    "application/rss+xml",
+    '<rss version="2.0"',
+  );
+  await checkFeed(
     "Hacker News RSS feed",
     "/hackernews/news",
     "application/rss+xml",

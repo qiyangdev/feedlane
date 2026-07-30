@@ -1,4 +1,5 @@
 import { RouteRegistry } from "../core/registry.js";
+import { createGithubCommitsRoute } from "./github/commits.js";
 import { createGithubReleasesRoute } from "./github/releases.js";
 import { hackerNewsListsRoute } from "./hackernews/lists.js";
 
@@ -8,6 +9,7 @@ export interface RouteRegistryOptions {
 
 export function createRouteRegistry(options: RouteRegistryOptions): RouteRegistry {
   return new RouteRegistry([
+    createGithubCommitsRoute({ token: options.githubToken }),
     createGithubReleasesRoute({ token: options.githubToken }),
     hackerNewsListsRoute,
   ]);
