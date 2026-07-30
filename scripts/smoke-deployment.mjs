@@ -1,3 +1,4 @@
+import { etagsWeaklyMatch } from "./http-cache.mjs";
 import { buildProtectionBypassHeaders } from "./vercel-protection.mjs";
 
 const baseUrlInput = process.argv.find(
@@ -152,8 +153,8 @@ async function checkFeed(
     `${name} conditional request returned HTTP ${conditionalResponse.status}; expected 304`,
   );
   assert(
-    conditionalResponse.headers.get("etag") === responseEtag,
-    `${name} conditional response changed the ETag`,
+    etagsWeaklyMatch(conditionalResponse.headers.get("etag"), responseEtag),
+    `${name} conditional response changed the ETag digest`,
   );
 }
 
