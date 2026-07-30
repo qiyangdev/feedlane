@@ -2,8 +2,7 @@ node_modules/
 .pnpm-store/
 dist/
 .vercel/
-.env
-.env.*
+.env*
 !.env.example
 coverage/
 *.log
