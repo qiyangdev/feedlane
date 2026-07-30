@@ -7,15 +7,20 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const DEFAULT_USER_AGENT = "Feedlane/0.1 (+https://github.com/feedlane/feedlane)";
+const DEFAULT_USER_AGENT = "Feedlane/0.1 (+https://github.com/qiyangdev/feedlane)";
+const RESERVED_HEADERS = new Set(["accept", "authorization", "host", "user-agent"]);
 
-export interface JsonRequestOptions {
+export interface HttpRequestOptions {
   allowedHosts: readonly string[];
   accept?: string;
   token?: string;
+  additionalHeaders?: Readonly<Record<string, string>>;
   timeoutMs?: number;
   maxResponseBytes?: number;
 }
+
+export type JsonRequestOptions = HttpRequestOptions;
+export type HtmlRequestOptions = HttpRequestOptions;
 
 export interface FetcherOptions {
   fetch?: typeof globalThis.fetch;
@@ -32,6 +37,33 @@ export class HttpFetcher {
   }
 
   async json(urlInput: string | URL, options: JsonRequestOptions): Promise<unknown> {
+    const response = await this.#request(urlInput, options, "application/json");
+    if (!isJsonMediaType(response.contentType)) {
+      throw new UpstreamResponseError("The upstream service did not return JSON.");
+    }
+
+    try {
+      return JSON.parse(response.body) as unknown;
+    } catch (error) {
+      throw new UpstreamResponseError("The upstream service returned malformed JSON.", {
+        cause: error,
+      });
+    }
+  }
+
+  async html(urlInput: string | URL, options: HtmlRequestOptions): Promise<string> {
+    const response = await this.#request(urlInput, options, "text/html, application/xhtml+xml");
+    if (!isHtmlMediaType(response.contentType)) {
+      throw new UpstreamResponseError("The upstream service did not return HTML.");
+    }
+    return response.body;
+  }
+
+  async #request(
+    urlInput: string | URL,
+    options: HttpRequestOptions,
+    defaultAccept: string,
+  ): Promise<{ body: string; contentType: string }> {
     const url = validateTarget(urlInput, options.allowedHosts);
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
@@ -43,10 +75,15 @@ export class HttpFetcher {
       throw new ValidationError("The response size limit must be a positive integer.");
     }
 
-    const headers = new Headers({
-      Accept: options.accept ?? "application/json",
-      "User-Agent": this.#userAgent,
-    });
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(options.additionalHeaders ?? {})) {
+      if (RESERVED_HEADERS.has(name.toLowerCase())) {
+        throw new ValidationError(`Header '${name}' cannot be overridden.`);
+      }
+      headers.set(name, value);
+    }
+    headers.set("Accept", options.accept ?? defaultAccept);
+    headers.set("User-Agent", this.#userAgent);
     if (options.token !== undefined && options.token.length > 0) {
       headers.set("Authorization", `Bearer ${options.token}`);
     }
@@ -82,19 +119,21 @@ export class HttpFetcher {
       throw new UpstreamResponseError(`The upstream service returned HTTP ${response.status}.`);
     }
 
-    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.includes("application/json") && !contentType.includes("+json")) {
-      throw new UpstreamResponseError("The upstream service did not return JSON.");
-    }
-
-    try {
-      return JSON.parse(body) as unknown;
-    } catch (error) {
-      throw new UpstreamResponseError("The upstream service returned malformed JSON.", {
-        cause: error,
-      });
-    }
+    return {
+      body,
+      contentType: response.headers.get("content-type")?.toLowerCase() ?? "",
+    };
   }
+}
+
+function isJsonMediaType(contentType: string): boolean {
+  const mediaType = contentType.split(";", 1)[0]?.trim();
+  return mediaType === "application/json" || mediaType?.endsWith("+json") === true;
+}
+
+function isHtmlMediaType(contentType: string): boolean {
+  const mediaType = contentType.split(";", 1)[0]?.trim();
+  return mediaType === "text/html" || mediaType === "application/xhtml+xml";
 }
 
 function validateTarget(urlInput: string | URL, allowedHosts: readonly string[]): URL {
