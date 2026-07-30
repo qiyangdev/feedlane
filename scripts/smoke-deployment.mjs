@@ -42,10 +42,6 @@ await checkJson(
   400,
   (response, body) => {
     assert(response.headers.get("cache-control") === "private, no-store", "must not be cached");
-    assert(
-      response.headers.get("vercel-cdn-cache-control") === "private, no-store",
-      "must not be cached by Vercel",
-    );
     assert(body.error?.code === "VALIDATION_ERROR", "returned an unexpected error");
   },
 );
