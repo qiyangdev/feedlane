@@ -98,9 +98,9 @@ Feedlane uses Vercel's Hono framework detection and exports the app from `src/in
 2. Add `GITHUB_TOKEN` in the project environment settings if desired.
 3. Run `vercel deploy`, or let a connected Git provider create deployments.
 
-Node.js 24 is selected through the `engines` field. `vercel.json` runs the TypeScript build, and Hono routes become Vercel Functions. Feedlane uses response headers for Vercel CDN caching; it does not use Runtime Cache, Redis, or Vercel Cron.
+Node.js 24 is selected through the `engines` field. Vercel detects and bundles the default Hono application export as a Vercel Function. Feedlane uses response headers for Vercel CDN caching; it does not use Runtime Cache, Redis, or Vercel Cron.
 
-No deployment is performed as part of this repository setup.
+Deployments are user-triggered; the repository does not include an automatic deployment workflow.
 
 ## Security boundaries and current limitations
 

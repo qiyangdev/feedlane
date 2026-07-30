@@ -67,3 +67,5 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
 }
 
 export const app = createApp();
+
+export default app;
