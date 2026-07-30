@@ -1,10 +1,12 @@
+import { buildProtectionBypassHeaders } from "./vercel-protection.mjs";
+
 const baseUrlInput = process.argv.find(
   (argument, index) => index > 1 && !argument.startsWith("--"),
 );
 const baseUrl = parseBaseUrl(baseUrlInput ?? process.env.FEEDLANE_BASE_URL);
 const checkUpstream =
   process.argv.includes("--upstream") || process.env.FEEDLANE_SMOKE_UPSTREAM === "true";
-const protectionBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const protectionBypassHeaders = buildProtectionBypassHeaders(baseUrl);
 
 await checkJson("liveness", "/health/live", 200, (response, body) => {
   assert(response.headers.get("cache-control") === "private, no-store", "must not be cached");
@@ -79,9 +81,7 @@ async function checkJson(name, path, expectedStatus, validate) {
   const url = new URL(path, baseUrl);
   const response = await fetch(url, {
     signal: AbortSignal.timeout(20_000),
-    ...(protectionBypassSecret === undefined || protectionBypassSecret === ""
-      ? {}
-      : { headers: { "x-vercel-protection-bypass": protectionBypassSecret } }),
+    ...(protectionBypassHeaders === undefined ? {} : { headers: protectionBypassHeaders }),
   });
   assert(
     response.status === expectedStatus,
@@ -93,7 +93,7 @@ async function checkJson(name, path, expectedStatus, validate) {
     body = await response.json();
   } catch {
     throw new Error(
-      `${name} did not return JSON. For a protected Vercel deployment, set VERCEL_AUTOMATION_BYPASS_SECRET.`,
+      `${name} did not return JSON. For a protected Vercel deployment, configure the bypass secret and trusted project/team slugs.`,
     );
   }
   validate(response, body);
