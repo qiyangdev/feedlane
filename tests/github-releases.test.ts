@@ -1,10 +1,20 @@
 import { HttpResponse, http } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app.js";
+import type { StructuredLogger } from "../src/core/logger.js";
+import { createRouteRegistry } from "../src/routes/index.js";
+import { MemoryLogger, silentLogger } from "./helpers.js";
 import { server } from "./setup.js";
 
 const apiUrl = "https://api.github.com/repos/acme/widget/releases";
+
+function createGithubApp(
+  githubToken: string | undefined = undefined,
+  logger: StructuredLogger = silentLogger,
+) {
+  return createApp({ registry: createRouteRegistry({ githubToken }), logger });
+}
 
 const stableRelease = {
   id: 101,
@@ -30,6 +40,7 @@ describe("GitHub releases route", () => {
         expect(request.headers.get("user-agent")).toMatch(/^Feedlane\//);
         expect(request.headers.get("accept")).toBe("application/vnd.github+json");
         expect(request.headers.get("authorization")).toBe("Bearer github-secret");
+        expect(request.headers.get("x-github-api-version")).toBe("2026-03-10");
         return HttpResponse.json([
           stableRelease,
           {
@@ -44,7 +55,7 @@ describe("GitHub releases route", () => {
         ]);
       }),
     );
-    const app = createApp({ environment: { githubToken: "github-secret" } });
+    const app = createGithubApp("github-secret");
 
     const response = await app.request(
       "https://feedlane.test/github/releases/acme/widget?format=json",
@@ -73,7 +84,9 @@ describe("GitHub releases route", () => {
       http.get(apiUrl, () => HttpResponse.json({ message: "Not Found" }, { status: 404 })),
     );
 
-    const response = await createApp().request("https://feedlane.test/github/releases/acme/widget");
+    const response = await createGithubApp().request(
+      "https://feedlane.test/github/releases/acme/widget",
+    );
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
@@ -84,8 +97,7 @@ describe("GitHub releases route", () => {
 
   it("maps GitHub rate limits without exposing a token in errors or logs", async () => {
     const token = "top-secret-github-token";
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const logger = new MemoryLogger();
     server.use(
       http.get(apiUrl, () =>
         HttpResponse.json(
@@ -95,7 +107,7 @@ describe("GitHub releases route", () => {
       ),
     );
 
-    const response = await createApp({ environment: { githubToken: token } }).request(
+    const response = await createGithubApp(token, logger).request(
       "https://feedlane.test/github/releases/acme/widget",
     );
     const body = await response.text();
@@ -103,9 +115,12 @@ describe("GitHub releases route", () => {
     expect(response.status).toBe(429);
     expect(body).toContain("UPSTREAM_RATE_LIMITED");
     expect(body).not.toContain(token);
-    expect(logSpy).not.toHaveBeenCalled();
-    expect(errorSpy).not.toHaveBeenCalled();
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
+    expect(JSON.stringify(logger.entries)).not.toContain(token);
+    expect(logger.entries.at(-1)).toMatchObject({
+      level: "warn",
+      event: "request.completed",
+      status: 429,
+      errorCode: "UPSTREAM_RATE_LIMITED",
+    });
   });
 });

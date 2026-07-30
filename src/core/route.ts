@@ -6,15 +6,10 @@ import type { HttpFetcher } from "./fetcher.js";
 
 export type RouteParameters = Record<string, string>;
 
-export interface RouteEnvironment {
-  githubToken: string | undefined;
-}
-
 export interface FeedRouteContext<TParameters extends RouteParameters> {
   params: TParameters;
   requestUrl: URL;
   fetcher: HttpFetcher;
-  environment: RouteEnvironment;
 }
 
 export interface FeedRoute<TParameters extends RouteParameters> {

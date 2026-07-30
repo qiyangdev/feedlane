@@ -13,6 +13,9 @@ export const requestId = createMiddleware<AppBindings>(async (context, next) => 
   const id =
     suppliedId !== undefined && validRequestId.test(suppliedId) ? suppliedId : crypto.randomUUID();
   context.set("requestId", id);
-  await next();
-  context.header("X-Request-Id", id);
+  try {
+    await next();
+  } finally {
+    context.header("X-Request-Id", id);
+  }
 });
