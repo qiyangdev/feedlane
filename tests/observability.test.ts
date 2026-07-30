@@ -130,7 +130,7 @@ describe("operational endpoints", () => {
       status: "ready",
       service: "feedlane",
       checks: { routeRegistry: "ok" },
-      routes: 3,
+      routes: 4,
     });
   });
 

@@ -135,6 +135,24 @@ curl 'http://localhost:3000/hackernews/best?format=json'
 
 Hacker News feeds use browser caching for 60 seconds and Vercel CDN caching for 5 minutes.
 
+## V2EX hot topics route
+
+```text
+GET /v2ex/topics/hot
+```
+
+The route parses V2EX's public `?tab=hot` page without requiring a V2EX access token. Each canonical topic URL is used as the stable item ID. Items include the node, author, reply count, and the page's latest activity timestamp. Because the hot page does not expose the original topic creation time, that activity timestamp is used for the feed item's publication and update dates.
+
+Examples:
+
+```bash
+curl 'http://localhost:3000/v2ex/topics/hot'
+curl 'http://localhost:3000/v2ex/topics/hot?format=atom'
+curl 'http://localhost:3000/v2ex/topics/hot?format=json'
+```
+
+V2EX hot-topic feeds use browser caching for 60 seconds and Vercel CDN caching for 5 minutes. Unsupported tab names, unsafe links, malformed activity dates, and pages with no valid topic rows are rejected or mapped to sanitized errors.
+
 ## Adding a route
 
 New routes are developed through community contributions. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the route acceptance criteria, security requirements, test expectations, and pull request checklist.
@@ -208,6 +226,7 @@ For a protected preview, configure a GitHub Actions repository secret named `VER
 - Error status responses are classified without consuming their response bodies.
 - GitHub 404, rate-limit, and other upstream failures map to sanitized API errors.
 - The Hacker News HTML route rejects unsupported lists, unexpected media types, unsafe story-link schemes, and pages with no valid stories.
+- The V2EX HTML route accepts only the `hot` tab and rejects unexpected media types, off-origin links, malformed timestamps, and pages with no valid topics.
 - Structured logs and metrics contain bounded route templates and sanitized error codes, not credentials or upstream payloads.
 - Generated feed URLs contain only the selected feed format and use `PUBLIC_BASE_URL` when configured.
 - Feed routes reject unknown or repeated query parameters before upstream requests, preventing unbounded CDN cache-key variants.

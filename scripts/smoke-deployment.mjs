@@ -88,6 +88,12 @@ if (checkUpstream) {
     "application/rss+xml",
     '<rss version="2.0"',
   );
+  await checkFeed(
+    "V2EX hot topics RSS feed",
+    "/v2ex/topics/hot",
+    "application/rss+xml",
+    '<rss version="2.0"',
+  );
 }
 
 console.log(
