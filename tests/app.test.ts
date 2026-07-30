@@ -71,7 +71,7 @@ describe("Feedlane application", () => {
     await expect(conditionalResponse.text()).resolves.toBe("");
   });
 
-  it("uses the configured public origin and removes unsupported feed URL parameters", async () => {
+  it("uses the configured public origin and canonicalizes the feed URL", async () => {
     server.use(http.get(apiUrl, () => HttpResponse.json([])));
     const app = createApp({
       registry: createRouteRegistry({ githubToken: undefined }),
@@ -80,13 +80,12 @@ describe("Feedlane application", () => {
     });
 
     const response = await app.request(
-      "https://internal.example.test/github/releases/acme/widget?format=json&token=must-not-leak",
+      "https://internal.example.test/github/releases/acme/widget?format=json",
     );
     const body = (await response.json()) as { feed_url: string };
 
     expect(response.status).toBe(200);
     expect(body.feed_url).toBe("https://feeds.example.com/github/releases/acme/widget?format=json");
-    expect(JSON.stringify(body)).not.toContain("must-not-leak");
   });
 
   it.each([
@@ -126,6 +125,33 @@ describe("Feedlane application", () => {
         requestId: expect.any(String),
       },
     });
+  });
+
+  it.each([
+    ["an unknown parameter", "cacheBust=random-value"],
+    ["an unknown parameter alongside format", "format=json&token=must-not-leak"],
+    ["duplicate formats with different values", "format=json&format=atom"],
+    ["duplicate formats with the same value", "format=rss&format=rss"],
+  ])("rejects %s before calling the upstream service", async (_description, query) => {
+    let upstreamCalls = 0;
+    server.use(
+      http.get(apiUrl, () => {
+        upstreamCalls += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    const response = await createTestApp().request(
+      `https://feedlane.test/github/releases/acme/widget?${query}`,
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vercel-cdn-cache-control")).toBe("private, no-store");
+    expect(body).toContain("VALIDATION_ERROR");
+    expect(body).not.toContain("must-not-leak");
+    expect(upstreamCalls).toBe(0);
   });
 
   it("returns a sanitized error for unknown routes", async () => {

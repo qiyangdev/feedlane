@@ -86,17 +86,14 @@ export function createApp(options: CreateAppOptions = {}): Hono<AppBindings> {
   for (const route of registry.list()) {
     app.use(route.path, etag());
     app.get(route.path, async (context) => {
-      const formatResult = formatSchema.safeParse(context.req.query("format") ?? "rss");
-      if (!formatResult.success) {
-        throw new ValidationError("Unsupported feed format. Use rss, atom, or json.");
-      }
+      const format = parseFeedFormat(context.req.queries());
 
       const document = await route.execute({
         params: context.req.param(),
-        requestUrl: buildFeedUrl(new URL(context.req.url), formatResult.data, publicBaseUrl),
+        requestUrl: buildFeedUrl(new URL(context.req.url), format, publicBaseUrl),
         fetcher,
       });
-      const output = serializeFeedDocument(document, formatResult.data);
+      const output = serializeFeedDocument(document, format);
 
       context.header("Content-Type", output.contentType);
       context.header("Cache-Control", "public, max-age=60");
@@ -125,6 +122,24 @@ export default app;
 function setOperationalHeaders(context: { header(name: string, value: string): void }): void {
   context.header("Cache-Control", "private, no-store");
   context.header("Vercel-CDN-Cache-Control", "private, no-store");
+}
+
+function parseFeedFormat(queries: Record<string, string[]>): FeedFormat {
+  const queryNames = Object.keys(queries);
+  if (queryNames.some((name) => name !== "format")) {
+    throw new ValidationError("Unsupported query parameter. Only format is allowed.");
+  }
+
+  const formatValues = queries.format ?? [];
+  if (formatValues.length > 1) {
+    throw new ValidationError("The format query parameter may be specified only once.");
+  }
+
+  const formatResult = formatSchema.safeParse(formatValues[0] ?? "rss");
+  if (!formatResult.success) {
+    throw new ValidationError("Unsupported feed format. Use rss, atom, or json.");
+  }
+  return formatResult.data;
 }
 
 function parsePublicBaseUrl(value: string | URL | undefined): URL | undefined {

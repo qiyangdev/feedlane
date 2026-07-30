@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       check_upstream:
-        description: Exercise the GitHub releases route
+        description: Exercise real upstream feed routes
         required: false
         default: false
         type: boolean
