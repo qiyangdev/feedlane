@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/dev.ts",
+    "route:new": "node scripts/create-route.mjs",
     "build": "tsc -p tsconfig.build.json",
     "build:smoke": "node scripts/smoke-build.mjs",
     "smoke:deployment": "node scripts/smoke-deployment.mjs",

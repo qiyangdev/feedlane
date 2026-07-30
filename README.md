@@ -137,6 +137,14 @@ Hacker News feeds use browser caching for 60 seconds and Vercel CDN caching for 
 
 ## Adding a route
 
+New routes are developed through community contributions. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the route acceptance criteria, security requirements, test expectations, and pull request checklist.
+
+Create a compile-safe route and test scaffold with:
+
+```bash
+pnpm route:new -- <source> <route-name>
+```
+
 1. Create a focused module under `src/routes/<source>/`.
 2. Define a Zod schema for path parameters.
 3. Implement a `FeedRoute` whose handler returns a `FeedDocument`; use a route factory when it needs source-specific configuration.

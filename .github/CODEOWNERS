@@ -1,0 +1,7 @@
+# Core runtime and deployment boundaries require maintainer review.
+/src/app.ts @qiyangdev
+/src/core/ @qiyangdev
+/src/middleware/ @qiyangdev
+/src/routes/index.ts @qiyangdev
+/.github/workflows/ @qiyangdev
+/scripts/ @qiyangdev

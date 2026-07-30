@@ -1,0 +1,95 @@
+name: Route proposal
+description: Propose or volunteer to implement a new community-maintained feed route.
+title: "[Route]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feedlane routes must use a stable public upstream and fit the project's API-only, serverless, and SSRF boundaries. Please check whether the source already provides a sufficient official feed before proposing a new route.
+
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Name of the website, API, registry, or service.
+      placeholder: Example Service
+    validations:
+      required: true
+
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream documentation or page
+      description: Link to the official API documentation or the public page that would be parsed.
+      placeholder: https://example.com/docs/api
+    validations:
+      required: true
+
+  - type: textarea
+    id: subscription
+    attributes:
+      label: Subscription use case
+      description: What should each feed item represent, and who benefits from subscribing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: native_feed
+    attributes:
+      label: Existing feed support
+      description: Does the source already publish RSS, Atom, or JSON Feed? Explain what is missing if it does.
+    validations:
+      required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: Proposed Feedlane path
+      description: Use validated path parameters rather than route-specific query parameters.
+      placeholder: /example/releases/:project
+    validations:
+      required: true
+
+  - type: dropdown
+    id: upstream_format
+    attributes:
+      label: Upstream format
+      options:
+        - Public JSON API
+        - Public HTML page
+        - Public XML API
+        - Other documented public format
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Authentication, limits, and terms
+      description: Describe required credentials, rate limits, response size, caching guidance, and relevant access terms.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: implementation
+    attributes:
+      label: Implementation
+      description: Community pull requests are the primary way routes are added.
+      options:
+        - I plan to implement this route
+        - I can help test or review an implementation
+        - I am proposing the use case only
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: The upstream data is public and does not require credentials in the Feedlane URL.
+          required: true
+        - label: The route will use a fixed hostname allowlist and will not accept an arbitrary target URL.
+          required: true
+        - label: I have reviewed the contribution requirements in CONTRIBUTING.md.
+          required: true

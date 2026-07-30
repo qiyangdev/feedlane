@@ -1,10 +1,10 @@
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 
-import { createApp } from "../src/app.js";
 import type { StructuredLogger } from "../src/core/logger.js";
-import { createRouteRegistry } from "../src/routes/index.js";
+import { createGithubReleasesRoute } from "../src/routes/github/releases.js";
 import { MemoryLogger, silentLogger } from "./helpers.js";
+import { createRouteTestApp } from "./route-test-app.js";
 import { server } from "./setup.js";
 
 const apiUrl = "https://api.github.com/repos/acme/widget/releases";
@@ -13,7 +13,7 @@ function createGithubApp(
   githubToken: string | undefined = undefined,
   logger: StructuredLogger = silentLogger,
 ) {
-  return createApp({ registry: createRouteRegistry({ githubToken }), logger });
+  return createRouteTestApp(createGithubReleasesRoute({ token: githubToken }), { logger });
 }
 
 const stableRelease = {

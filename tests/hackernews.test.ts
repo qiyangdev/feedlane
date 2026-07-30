@@ -1,9 +1,8 @@
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 
-import { createApp } from "../src/app.js";
-import { createRouteRegistry } from "../src/routes/index.js";
-import { silentLogger } from "./helpers.js";
+import { hackerNewsListsRoute } from "../src/routes/hackernews/lists.js";
+import { createRouteTestApp } from "./route-test-app.js";
 import { server } from "./setup.js";
 
 const hackerNewsOrigin = "https://news.ycombinator.com";
@@ -40,10 +39,7 @@ const pageFixture = `<!doctype html>
 </html>`;
 
 function createHackerNewsApp() {
-  return createApp({
-    registry: createRouteRegistry({ githubToken: undefined }),
-    logger: silentLogger,
-  });
+  return createRouteTestApp(hackerNewsListsRoute);
 }
 
 describe("Hacker News lists route", () => {
